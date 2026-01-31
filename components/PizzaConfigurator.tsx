@@ -127,31 +127,31 @@ export default function PizzaConfigurator() {
     const pizzaRect = pizzaRef.current.getBoundingClientRect()
     const pizzaCenterX = pizzaRect.left + pizzaRect.width / 2
     const pizzaCenterY = pizzaRect.top + pizzaRect.height / 2
-    
+
     // حساب نصف القطر للبيتزا المتوسطة (الحجم الأساسي)
     const baseRadius = (pizzaRect.width / 2) / sizeConfig[selectedSize].scale
     // استخدام 55% فقط من نصف القطر لضمان البقاء داخل الحدود
     const safeRadius = baseRadius * 0.55
-    
+
     // حجم القطعة الأساسي (بدون تكبير)
     const basePieceSize = ingredient.pieceSize
     const pieceHalfSize = basePieceSize / 2
 
     const newFlyingPieces: FlyingPiece[] = []
-    
+
     for (let i = 0; i < ingredient.pieceCount; i++) {
       pieceCounter.current += 1
-      
+
       const angle = Math.random() * Math.PI * 2
       const distance = Math.sqrt(Math.random()) * (safeRadius - pieceHalfSize)
-      
+
       // المواقع النسبية (بدون تكبير)
       const x = Math.cos(angle) * distance
       const y = Math.sin(angle) * distance
-      
+
       // لكن للعرض المؤقت نستخدم الحجم الحالي
       const currentScale = sizeConfig[selectedSize].scale
-      
+
       newFlyingPieces.push({
         id: `${ingredient.id}-${pieceCounter.current}`,
         ingredientId: ingredient.id,
@@ -184,7 +184,7 @@ export default function PizzaConfigurator() {
     if (!pizzaRect) return
 
     const currentScale = sizeConfig[selectedSize].scale
-    
+
     // حساب الموقع النسبي (بدون تكبير)
     const relativeX = (piece.endX - (pizzaRect.left + pizzaRect.width / 2)) / currentScale
     const relativeY = (piece.endY - (pizzaRect.top + pizzaRect.height / 2)) / currentScale
@@ -208,7 +208,7 @@ export default function PizzaConfigurator() {
     if (isBoxing) return
     setIsBoxing(true)
     setBoxPhase("appearing")
-    
+
     setTimeout(() => setBoxPhase("pizza-entering"), 600)
     setTimeout(() => setBoxPhase("closing"), 1400)
     setTimeout(() => setBoxPhase("closed"), 2000)
@@ -236,7 +236,7 @@ export default function PizzaConfigurator() {
         ...prev,
         [currentPizza.id]: [],
       }))
-      
+
       setAddedIngredients((prev) => ({
         ...prev,
         [currentPizza.id]: new Set(),
@@ -276,7 +276,9 @@ export default function PizzaConfigurator() {
       {/* Header */}
       <header className="p-4 flex items-center justify-between border-b border-border">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Pizza Studio</h1>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-orange-500 uppercase tracking-wider drop-shadow-lg">
+            Forano
+          </h1>
           <p className="text-sm text-muted-foreground">Build your perfect pizza</p>
         </div>
         <Button
@@ -326,8 +328,8 @@ export default function PizzaConfigurator() {
         <div className="relative">
           {/* Pizza Box Animation */}
           {isBoxing && boxPhase !== "none" && (
-            <BoxAnimation 
-              phase={boxPhase} 
+            <BoxAnimation
+              phase={boxPhase}
               cartPosition={getCartPosition()}
               pizzaRef={pizzaRef}
               pizzaSize={selectedSize}
@@ -399,8 +401,8 @@ export default function PizzaConfigurator() {
               disabled={isBoxing}
               className={`
                 w-12 h-12 rounded-full font-bold text-lg transition-all duration-300
-                ${selectedSize === size 
-                  ? "bg-primary text-primary-foreground shadow-lg scale-110" 
+                ${selectedSize === size
+                  ? "bg-primary text-primary-foreground shadow-lg scale-110"
                   : "bg-muted text-muted-foreground hover:bg-muted-foreground/20 hover:scale-105"
                 }
                 disabled:opacity-50 disabled:cursor-not-allowed
@@ -421,9 +423,8 @@ export default function PizzaConfigurator() {
             <button
               key={index}
               onClick={() => !isTransitioning && !isBoxing && setCurrentIndex(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                index === currentIndex ? "bg-primary w-4" : "bg-muted hover:bg-muted-foreground/50"
-              }`}
+              className={`w-2 h-2 rounded-full transition-all ${index === currentIndex ? "bg-primary w-4" : "bg-muted hover:bg-muted-foreground/50"
+                }`}
             />
           ))}
         </div>
@@ -452,11 +453,10 @@ export default function PizzaConfigurator() {
                   handleAddIngredient(ingredient, rect)
                 }}
                 disabled={isBoxing || isAdded}
-                className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl transition-all group snap-center min-w-[100px] ${
-                  isAdded 
-                    ? "bg-primary/10 opacity-60 cursor-not-allowed" 
+                className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl transition-all group snap-center min-w-[100px] ${isAdded
+                    ? "bg-primary/10 opacity-60 cursor-not-allowed"
                     : "bg-background hover:bg-accent"
-                }`}
+                  }`}
               >
                 <div className="relative w-14 h-14 rounded-full overflow-hidden shadow-md transition-transform group-hover:scale-110">
                   <Image
@@ -576,12 +576,12 @@ export default function PizzaConfigurator() {
 }
 
 // Simple Box Animation Component using CSS
-function BoxAnimation({ 
-  phase, 
+function BoxAnimation({
+  phase,
   cartPosition,
   pizzaRef,
   pizzaSize,
-}: { 
+}: {
   phase: "appearing" | "pizza-entering" | "closing" | "closed" | "flying"
   cartPosition: { x: number; y: number }
   pizzaRef: React.RefObject<HTMLDivElement>
@@ -655,7 +655,7 @@ function BoxAnimation({
 
   return (
     <div style={getContainerStyle()}>
-      <div 
+      <div
         className="relative"
         style={{
           width: boxSize,
@@ -663,7 +663,7 @@ function BoxAnimation({
         }}
       >
         {/* قاعدة الكرتونة المربعة */}
-        <div 
+        <div
           className="absolute inset-0 bg-gradient-to-br from-[#d4a574] to-[#b8875a] rounded-lg shadow-2xl border-4 border-[#a67c52]"
           style={{
             boxShadow: "0 20px 60px rgba(0,0,0,0.4), inset 0 -2px 10px rgba(0,0,0,0.2)",
@@ -676,7 +676,7 @@ function BoxAnimation({
               <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-[#8b6f47] opacity-40 -translate-x-1/2" />
               {/* خط أفقي */}
               <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-[#8b6f47] opacity-40 -translate-y-1/2" />
-              
+
               {/* زوايا الكرتونة */}
               <div className="absolute top-2 left-2 w-8 h-8 border-t-2 border-l-2 border-[#8b6f47] opacity-50" />
               <div className="absolute top-2 right-2 w-8 h-8 border-t-2 border-r-2 border-[#8b6f47] opacity-50" />
@@ -686,14 +686,14 @@ function BoxAnimation({
           </div>
 
           {/* جوانب الكرتونة - تأثير 3D */}
-          <div className="absolute -left-1 top-2 bottom-2 w-3 bg-[#9d7a52] rounded-l" 
-               style={{ transform: "skewY(-2deg)" }} />
-          <div className="absolute -right-1 top-2 bottom-2 w-3 bg-[#9d7a52] rounded-r" 
-               style={{ transform: "skewY(2deg)" }} />
+          <div className="absolute -left-1 top-2 bottom-2 w-3 bg-[#9d7a52] rounded-l"
+            style={{ transform: "skewY(-2deg)" }} />
+          <div className="absolute -right-1 top-2 bottom-2 w-3 bg-[#9d7a52] rounded-r"
+            style={{ transform: "skewY(2deg)" }} />
         </div>
 
         {/* الغطاء العلوي المربع */}
-        <div 
+        <div
           className="absolute left-0 right-0 origin-bottom"
           style={{
             height: boxSize * 0.15,
@@ -703,7 +703,7 @@ function BoxAnimation({
             transition: "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
-          <div 
+          <div
             className="w-full h-full bg-gradient-to-br from-[#d4a574] to-[#b8875a] rounded-t-lg shadow-2xl border-4 border-[#a67c52] border-b-0 relative"
             style={{
               boxShadow: "0 -10px 30px rgba(0,0,0,0.3), inset 0 2px 10px rgba(0,0,0,0.2)",
@@ -719,9 +719,9 @@ function BoxAnimation({
             {(phase === "closed" || phase === "flying") && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="bg-[oklch(0.65_0.18_35)] rounded-full w-24 h-24 flex items-center justify-center shadow-lg"
-                     style={{
-                       boxShadow: "0 4px 15px rgba(220, 38, 38, 0.5)",
-                     }}>
+                  style={{
+                    boxShadow: "0 4px 15px rgba(220, 38, 38, 0.5)",
+                  }}>
                   <div className="text-center">
                     <div className="text-white font-bold text-xl tracking-wider">PIZZA</div>
                     <div className="text-white text-xs mt-0.5">Fresh &amp; Hot</div>
@@ -796,10 +796,10 @@ function FlyingPieceComponent({
   const currentY = piece.startY + dy * progress + arcHeight * Math.sin(progress * Math.PI)
 
   // Scale: start small, grow, then settle
-  const scale = progress < 0.3 
-    ? 0.5 + progress * 1.5 
-    : progress < 0.7 
-      ? 1 + (progress - 0.3) * 0.25 
+  const scale = progress < 0.3
+    ? 0.5 + progress * 1.5
+    : progress < 0.7
+      ? 1 + (progress - 0.3) * 0.25
       : 1.1 - (progress - 0.7) * 0.3
 
   // Spin during flight with random tumbling
@@ -819,11 +819,11 @@ function FlyingPieceComponent({
         opacity: progress > 0.9 ? 1 - (progress - 0.9) * 5 : 1, // Fade slightly at end
       }}
     >
-      <Image 
-        src={ingredient.pieceImage || "/placeholder.svg"} 
-        alt={ingredient.name} 
-        fill 
-        className="object-cover" 
+      <Image
+        src={ingredient.pieceImage || "/placeholder.svg"}
+        alt={ingredient.name}
+        fill
+        className="object-cover"
       />
     </div>
   )
