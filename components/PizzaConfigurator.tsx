@@ -302,6 +302,8 @@ export default function PizzaConfigurator() {
             <BoxAnimation 
               phase={boxPhase} 
               cartPosition={getCartPosition()}
+              pizzaRef={pizzaRef}
+              pizzaSize={selectedSize}
             />
           )}
 
@@ -337,7 +339,7 @@ export default function PizzaConfigurator() {
                 return (
                   <div
                     key={piece.id}
-                    className="absolute rounded-full overflow-hidden shadow-md pointer-events-none transition-all duration-300"
+                    className="absolute rounded-full overflow-hidden pointer-events-none transition-all duration-300"
                     style={{
                       width: scaledSize,
                       height: scaledSize,
@@ -529,60 +531,162 @@ export default function PizzaConfigurator() {
   )
 }
 
-// Box Animation Component
+// Simple Box Animation Component using CSS
 function BoxAnimation({ 
   phase, 
-  cartPosition 
+  cartPosition,
+  pizzaRef,
+  pizzaSize,
 }: { 
   phase: "appearing" | "pizza-entering" | "closing" | "closed" | "flying"
   cartPosition: { x: number; y: number }
+  pizzaRef: React.RefObject<HTMLDivElement>
+  pizzaSize: PizzaSize
 }) {
-  const getBoxStyle = (): React.CSSProperties => {
-    const baseStyle: React.CSSProperties = {
-      position: "absolute",
-      inset: 0,
-      zIndex: 30,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      transition: "all 0.6s ease-in-out",
-    }
+  const [pizzaPosition, setPizzaPosition] = useState({ x: 0, y: 0, width: 0, height: 0 })
 
+  // حساب موقع وحجم البيتزا
+  useEffect(() => {
+    if (pizzaRef.current) {
+      const rect = pizzaRef.current.getBoundingClientRect()
+      setPizzaPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+        width: rect.width,
+        height: rect.height,
+      })
+    }
+  }, [pizzaRef, pizzaSize, phase])
+
+  const getContainerStyle = (): React.CSSProperties => {
     if (phase === "flying") {
+      // الطيران إلى السلة
       return {
-        ...baseStyle,
-        transform: `translate(${cartPosition.x - window.innerWidth / 2}px, ${cartPosition.y - window.innerHeight / 2}px) scale(0.15)`,
+        position: "fixed",
+        left: pizzaPosition.x,
+        top: pizzaPosition.y,
+        transform: `translate(-50%, -50%) translate(${cartPosition.x - pizzaPosition.x}px, ${cartPosition.y - pizzaPosition.y}px) scale(0.1)`,
+        transition: "all 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
         opacity: 0,
+        zIndex: 50,
+        pointerEvents: "none",
       }
     }
 
-    return baseStyle
+    if (phase === "appearing") {
+      // النزول من فوق
+      return {
+        position: "fixed",
+        left: pizzaPosition.x,
+        top: pizzaPosition.y,
+        transform: "translate(-50%, -50%) translateY(-120vh)",
+        transition: "all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        zIndex: 15, // تحت البيتزا
+        pointerEvents: "none",
+      }
+    }
+
+    // المراحل الأخرى: في مكان البيتزا
+    return {
+      position: "fixed",
+      left: pizzaPosition.x,
+      top: pizzaPosition.y,
+      transform: "translate(-50%, -50%)",
+      transition: "all 0.6s ease-in-out",
+      zIndex: 15, // تحت البيتزا
+      pointerEvents: "none",
+    }
   }
 
-  const getImageStyle = (): React.CSSProperties => {
-    const baseStyle: React.CSSProperties = {
-      transition: "all 0.6s ease-in-out",
-    }
+  // حساب حجم الكرتونة - أكبر من البيتزا شوي
+  const boxSize = Math.max(pizzaPosition.width, pizzaPosition.height) * 0.9
 
-    if (phase === "appearing") {
-      return { ...baseStyle, transform: "scale(0.8)", opacity: 0.5 }
+  // الغطاء العلوي - دوران
+  const getLidTransform = () => {
+    if (phase === "appearing" || phase === "pizza-entering") {
+      return "perspective(800px) rotateX(-120deg)" // مفتوح للخلف
     }
-    if (phase === "pizza-entering") {
-      return { ...baseStyle, transform: "scale(1.05)" }
-    }
-    return { ...baseStyle, transform: "scale(1)" }
+    return "perspective(800px) rotateX(0deg)" // مقفول
   }
 
   return (
-    <div style={getBoxStyle()}>
-      <div className="relative w-80 h-80 md:w-96 md:h-96" style={getImageStyle()}>
-        <Image
-          src={phase === "closed" || phase === "flying" ? "/images/box-closed.jpg" : "/images/box-open.jpg"}
-          alt="Pizza Box"
-          fill
-          className="object-contain"
-          priority
-        />
+    <div style={getContainerStyle()}>
+      <div 
+        className="relative"
+        style={{
+          width: boxSize,
+          height: boxSize,
+        }}
+      >
+        {/* قاعدة الكرتونة المربعة */}
+        <div 
+          className="absolute inset-0 bg-gradient-to-br from-[#d4a574] to-[#b8875a] rounded-lg shadow-2xl border-4 border-[#a67c52]"
+          style={{
+            boxShadow: "0 20px 60px rgba(0,0,0,0.4), inset 0 -2px 10px rgba(0,0,0,0.2)",
+          }}
+        >
+          {/* خطوط الكرتونة للواقعية */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-full h-full relative">
+              {/* خط عمودي */}
+              <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-[#8b6f47] opacity-40 -translate-x-1/2" />
+              {/* خط أفقي */}
+              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-[#8b6f47] opacity-40 -translate-y-1/2" />
+              
+              {/* زوايا الكرتونة */}
+              <div className="absolute top-2 left-2 w-8 h-8 border-t-2 border-l-2 border-[#8b6f47] opacity-50" />
+              <div className="absolute top-2 right-2 w-8 h-8 border-t-2 border-r-2 border-[#8b6f47] opacity-50" />
+              <div className="absolute bottom-2 left-2 w-8 h-8 border-b-2 border-l-2 border-[#8b6f47] opacity-50" />
+              <div className="absolute bottom-2 right-2 w-8 h-8 border-b-2 border-r-2 border-[#8b6f47] opacity-50" />
+            </div>
+          </div>
+
+          {/* جوانب الكرتونة - تأثير 3D */}
+          <div className="absolute -left-1 top-2 bottom-2 w-3 bg-[#9d7a52] rounded-l" 
+               style={{ transform: "skewY(-2deg)" }} />
+          <div className="absolute -right-1 top-2 bottom-2 w-3 bg-[#9d7a52] rounded-r" 
+               style={{ transform: "skewY(2deg)" }} />
+        </div>
+
+        {/* الغطاء العلوي المربع */}
+        <div 
+          className="absolute left-0 right-0 origin-bottom"
+          style={{
+            height: boxSize * 0.15,
+            bottom: boxSize * 0.5,
+            transform: getLidTransform(),
+            transformStyle: "preserve-3d",
+            transition: "transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          <div 
+            className="w-full h-full bg-gradient-to-br from-[#d4a574] to-[#b8875a] rounded-t-lg shadow-2xl border-4 border-[#a67c52] border-b-0 relative"
+            style={{
+              boxShadow: "0 -10px 30px rgba(0,0,0,0.3), inset 0 2px 10px rgba(0,0,0,0.2)",
+            }}
+          >
+            {/* خطوط الغطاء */}
+            <div className="absolute inset-0">
+              <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-[#8b6f47] opacity-40 -translate-x-1/2" />
+              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-[#8b6f47] opacity-40 -translate-y-1/2" />
+            </div>
+
+            {/* شعار على الغطاء - يظهر فقط لما تقفل */}
+            {(phase === "closed" || phase === "flying") && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-[oklch(0.65_0.18_35)] rounded-full w-24 h-24 flex items-center justify-center shadow-lg"
+                     style={{
+                       boxShadow: "0 4px 15px rgba(220, 38, 38, 0.5)",
+                     }}>
+                  <div className="text-center">
+                    <div className="text-white font-bold text-xl tracking-wider">PIZZA</div>
+                    <div className="text-white text-xs mt-0.5">Fresh &amp; Hot</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -661,7 +765,7 @@ function FlyingPieceComponent({
 
   return (
     <div
-      className="fixed pointer-events-none z-40 rounded-full overflow-hidden shadow-lg"
+      className="fixed pointer-events-none z-40 rounded-full overflow-hidden"
       style={{
         width: piece.size,
         height: piece.size,
