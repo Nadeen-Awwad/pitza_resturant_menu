@@ -124,16 +124,15 @@ export default function PizzaConfigurator() {
       return
     }
 
+    // الحصول على موقع البيتزا بشكل مباشر في وقت الضغط
     const pizzaRect = pizzaRef.current.getBoundingClientRect()
     const pizzaCenterX = pizzaRect.left + pizzaRect.width / 2
     const pizzaCenterY = pizzaRect.top + pizzaRect.height / 2
     
     // حساب نصف القطر للبيتزا المتوسطة (الحجم الأساسي)
     const baseRadius = (pizzaRect.width / 2) / sizeConfig[selectedSize].scale
-    // استخدام 55% فقط من نصف القطر لضمان البقاء داخل الحدود
     const safeRadius = baseRadius * 0.55
     
-    // حجم القطعة الأساسي (بدون تكبير)
     const basePieceSize = ingredient.pieceSize
     const pieceHalfSize = basePieceSize / 2
 
@@ -149,7 +148,6 @@ export default function PizzaConfigurator() {
       const x = Math.cos(angle) * distance
       const y = Math.sin(angle) * distance
       
-      // لكن للعرض المؤقت نستخدم الحجم الحالي
       const currentScale = sizeConfig[selectedSize].scale
       
       newFlyingPieces.push({
@@ -437,7 +435,7 @@ export default function PizzaConfigurator() {
       </div>
 
       {/* Ingredient Panel */}
-      <div className="bg-card border-t border-border p-4">
+      <div className="sticky bottom-0 bg-card border-t border-border p-4 z-20">
         <h3 className="text-sm font-semibold text-muted-foreground mb-3 text-center uppercase tracking-wide">
           Add Toppings
         </h3>
