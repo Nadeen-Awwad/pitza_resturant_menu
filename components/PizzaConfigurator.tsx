@@ -276,7 +276,7 @@ export default function PizzaConfigurator() {
       {/* Header */}
       <header className="p-4 flex items-center justify-between border-b border-border">
         <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-orange-500 uppercase tracking-wider drop-shadow-lg">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-[oklch(0.65_0.18_35)] uppercase tracking-wider drop-shadow-lg">
             Forano
           </h1>
           <p className="text-sm text-muted-foreground">Build your perfect pizza</p>
