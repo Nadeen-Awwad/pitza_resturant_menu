@@ -398,7 +398,7 @@ export default function PizzaConfigurator() {
               onClick={() => !isBoxing && setSelectedSize(size)}
               disabled={isBoxing}
               className={`
-                px-6 py-2.5 rounded-full font-semibold transition-all duration-300
+                w-12 h-12 rounded-full font-bold text-lg transition-all duration-300
                 ${selectedSize === size 
                   ? "bg-primary text-primary-foreground shadow-lg scale-110" 
                   : "bg-muted text-muted-foreground hover:bg-muted-foreground/20 hover:scale-105"
@@ -406,12 +406,7 @@ export default function PizzaConfigurator() {
                 disabled:opacity-50 disabled:cursor-not-allowed
               `}
             >
-              <div className="flex flex-col items-center">
-                <span className="text-lg">{sizeConfig[size].label}</span>
-                <span className="text-xs opacity-75">
-                  {size.charAt(0).toUpperCase() + size.slice(1)}
-                </span>
-              </div>
+              {sizeConfig[size].label}
             </button>
           ))}
         </div>
