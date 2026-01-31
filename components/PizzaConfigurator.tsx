@@ -37,8 +37,17 @@ interface CartItem {
   pizzaId: string
   pizzaName: string
   basePrice: number
+  size: PizzaSize
   addedIngredients: { id: string; name: string; price: number }[]
   totalPrice: number
+}
+
+type PizzaSize = "small" | "medium" | "large"
+
+const sizeConfig = {
+  small: { label: "S", scale: 0.75, priceMultiplier: 0.8 },
+  medium: { label: "M", scale: 1.0, priceMultiplier: 1.0 },
+  large: { label: "L", scale: 1.25, priceMultiplier: 1.3 },
 }
 
 export default function PizzaConfigurator() {
@@ -51,21 +60,23 @@ export default function PizzaConfigurator() {
   const [showCart, setShowCart] = useState(false)
   const [isBoxing, setIsBoxing] = useState(false)
   const [boxPhase, setBoxPhase] = useState<"none" | "appearing" | "pizza-entering" | "closing" | "closed" | "flying">("none")
+  const [selectedSize, setSelectedSize] = useState<PizzaSize>("medium")
 
   const pizzaRef = useRef<HTMLDivElement>(null)
   const cartIconRef = useRef<HTMLButtonElement>(null)
   const touchStartX = useRef(0)
+  const pieceCounter = useRef(0) // Counter for unique IDs
 
   const currentPizza = pizzaTypes[currentIndex]
 
-  // Calculate total price including added ingredients
+  // Calculate total price including added ingredients and size multiplier
   const calculateTotalPrice = () => {
     const addedPieces = placedPieces[currentPizza.id] || []
     const uniqueIngredients = [...new Set(addedPieces.map((p) => p.ingredientId))]
     const ingredientsCost = uniqueIngredients.reduce((sum, ingId) => {
       return sum + (allIngredients[ingId]?.price || 0)
     }, 0)
-    return currentPizza.basePrice + ingredientsCost
+    return (currentPizza.basePrice + ingredientsCost) * sizeConfig[selectedSize].priceMultiplier
   }
 
   const navigatePizza = useCallback(
@@ -111,23 +122,29 @@ export default function PizzaConfigurator() {
     const pizzaRect = pizzaRef.current.getBoundingClientRect()
     const pizzaCenterX = pizzaRect.left + pizzaRect.width / 2
     const pizzaCenterY = pizzaRect.top + pizzaRect.height / 2
-    const pizzaRadius = pizzaRect.width / 2
+    
+    // استخدم نصف قطر البيتزا الحقيقي مع مراعاة حجم البيتزا المختار
+    const actualPizzaRadius = (pizzaRect.width / 2) * sizeConfig[selectedSize].scale
+    const pizzaRadius = actualPizzaRadius * 0.7 // 70% من نصف القطر الفعلي للبقاء داخل الحدود
 
     // Generate positions for all pieces - within the circular pizza area
     const positions = generatePiecePositions(ingredient.pieceCount, pizzaRadius)
 
     // Create flying pieces for each position with staggered delays
-    const newFlyingPieces: FlyingPiece[] = positions.map((pos, index) => ({
-      id: `${ingredient.id}-${Date.now()}-${index}`,
-      ingredientId: ingredient.id,
-      startX: buttonRect.left + buttonRect.width / 2,
-      startY: buttonRect.top + buttonRect.height / 2,
-      endX: pizzaCenterX + pos.x,
-      endY: pizzaCenterY + pos.y,
-      size: ingredient.pieceSize + (Math.random() * 6 - 3), // Slight size variation
-      rotation: ingredient.rotation ? pos.rotation : 0,
-      delay: index * 60, // Stagger for sprinkle effect
-    }))
+    const newFlyingPieces: FlyingPiece[] = positions.map((pos, index) => {
+      pieceCounter.current += 1
+      return {
+        id: `${ingredient.id}-${pieceCounter.current}`,
+        ingredientId: ingredient.id,
+        startX: buttonRect.left + buttonRect.width / 2,
+        startY: buttonRect.top + buttonRect.height / 2,
+        endX: pizzaCenterX + pos.x,
+        endY: pizzaCenterY + pos.y,
+        size: (ingredient.pieceSize * sizeConfig[selectedSize].scale) + (Math.random() * 6 - 3), // Size scales with pizza
+        rotation: Math.random() * 360, // Random rotation for each piece
+        delay: index * 60, // Stagger for sprinkle effect
+      }
+    })
 
     setFlyingPieces((prev) => [...prev, ...newFlyingPieces])
   }
@@ -181,6 +198,7 @@ export default function PizzaConfigurator() {
         pizzaId: currentPizza.id,
         pizzaName: currentPizza.name,
         basePrice: currentPizza.basePrice,
+        size: selectedSize,
         addedIngredients: uniqueIngredients.map((ingId) => ({
           id: ingId,
           name: allIngredients[ingId]?.name || ingId,
@@ -290,11 +308,11 @@ export default function PizzaConfigurator() {
           {/* Pizza */}
           <div
             ref={pizzaRef}
-            className={`relative w-72 h-72 md:w-80 md:h-80 transition-all duration-500 ease-in-out ${getTransformClass()}`}
+            className={`relative w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 lg:w-[28rem] lg:h-[28rem] transition-all duration-500 ease-in-out ${getTransformClass()}`}
             style={{
               transform: boxPhase === "pizza-entering" || boxPhase === "closing" || boxPhase === "closed" || boxPhase === "flying"
-                ? "scale(0.85) translateY(-20px)"
-                : undefined,
+                ? `scale(${0.85 * sizeConfig[selectedSize].scale}) translateY(-20px)`
+                : `scale(${sizeConfig[selectedSize].scale})`,
               opacity: boxPhase === "closing" || boxPhase === "closed" || boxPhase === "flying" ? 0 : 1,
               transition: "all 0.6s ease-in-out",
             }}
@@ -312,15 +330,19 @@ export default function PizzaConfigurator() {
               {currentPlacedPieces.map((piece) => {
                 const ingredient = allIngredients[piece.ingredientId]
                 if (!ingredient) return null
+                // Scale piece size and position with pizza size
+                const scaledSize = piece.size * sizeConfig[selectedSize].scale
+                const scaledX = piece.x * sizeConfig[selectedSize].scale
+                const scaledY = piece.y * sizeConfig[selectedSize].scale
                 return (
                   <div
                     key={piece.id}
-                    className="absolute rounded-full overflow-hidden shadow-md pointer-events-none"
+                    className="absolute rounded-full overflow-hidden shadow-md pointer-events-none transition-all duration-300"
                     style={{
-                      width: piece.size,
-                      height: piece.size,
-                      left: `calc(50% + ${piece.x}px - ${piece.size / 2}px)`,
-                      top: `calc(50% + ${piece.y}px - ${piece.size / 2}px)`,
+                      width: scaledSize,
+                      height: scaledSize,
+                      left: `calc(50% + ${scaledX}px - ${scaledSize / 2}px)`,
+                      top: `calc(50% + ${scaledY}px - ${scaledSize / 2}px)`,
                       transform: `rotate(${piece.rotation}deg)`,
                     }}
                   >
@@ -335,6 +357,34 @@ export default function PizzaConfigurator() {
               })}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Size Selector */}
+      <div className="py-3 px-4">
+        <div className="flex justify-center gap-3">
+          {(Object.keys(sizeConfig) as PizzaSize[]).map((size) => (
+            <button
+              key={size}
+              onClick={() => !isBoxing && setSelectedSize(size)}
+              disabled={isBoxing}
+              className={`
+                px-6 py-2.5 rounded-full font-semibold transition-all duration-300
+                ${selectedSize === size 
+                  ? "bg-primary text-primary-foreground shadow-lg scale-110" 
+                  : "bg-muted text-muted-foreground hover:bg-muted-foreground/20 hover:scale-105"
+                }
+                disabled:opacity-50 disabled:cursor-not-allowed
+              `}
+            >
+              <div className="flex flex-col items-center">
+                <span className="text-lg">{sizeConfig[size].label}</span>
+                <span className="text-xs opacity-75">
+                  {size.charAt(0).toUpperCase() + size.slice(1)}
+                </span>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -433,13 +483,18 @@ export default function PizzaConfigurator() {
                   {cart.map((item, index) => (
                     <div key={index} className="bg-background rounded-lg p-3">
                       <div className="flex justify-between items-start">
-                        <h3 className="font-semibold text-foreground">{item.pizzaName}</h3>
+                        <div>
+                          <h3 className="font-semibold text-foreground">{item.pizzaName}</h3>
+                          <span className="text-xs text-muted-foreground">
+                            Size: {item.size.charAt(0).toUpperCase() + item.size.slice(1)}
+                          </span>
+                        </div>
                         <span className="font-bold text-primary">
                           ${item.totalPrice.toFixed(2)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Base: ${item.basePrice.toFixed(2)}
+                        Base: ${item.basePrice.toFixed(2)} × {sizeConfig[item.size].priceMultiplier}
                       </p>
                       {item.addedIngredients.length > 0 && (
                         <div className="mt-1">
@@ -581,14 +636,15 @@ function FlyingPieceComponent({
 
   if (!started) return null
 
-  // Calculate position along a curved arc path
+  // Calculate position along a curved arc path with random variation
   const dx = piece.endX - piece.startX
   const dy = piece.endY - piece.startY
 
-  // Add upward arc then down to pizza
-  const arcHeight = -120 - Math.random() * 40
+  // Add upward arc then down to pizza with slight random variation
+  const arcHeight = -120 - Math.random() * 60
+  const lateralDrift = (Math.random() - 0.5) * 30 // Small random sideways drift
 
-  const currentX = piece.startX + dx * progress
+  const currentX = piece.startX + dx * progress + lateralDrift * Math.sin(progress * Math.PI)
   const currentY = piece.startY + dy * progress + arcHeight * Math.sin(progress * Math.PI)
 
   // Scale: start small, grow, then settle
@@ -598,8 +654,10 @@ function FlyingPieceComponent({
       ? 1 + (progress - 0.3) * 0.25 
       : 1.1 - (progress - 0.7) * 0.3
 
-  // Spin during flight
-  const spinRotation = piece.rotation + progress * 540
+  // Spin during flight with random tumbling
+  const baseRotation = Math.random() * 360 // Random starting rotation
+  const tumbleSpeed = (Math.random() * 720 + 360) * (Math.random() > 0.5 ? 1 : -1) // Random tumble speed and direction
+  const spinRotation = baseRotation + progress * tumbleSpeed
 
   return (
     <div

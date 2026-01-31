@@ -217,33 +217,36 @@ export const pizzaTypes: PizzaType[] = [
 ]
 
 // Generate random positions for ingredient pieces WITHIN the pizza circle
+// محسّن لتجنب التجمع في المركز
 export function generatePiecePositions(
   pieceCount: number,
   pizzaRadius: number
 ): { x: number; y: number; rotation: number }[] {
   const positions: { x: number; y: number; rotation: number }[] = []
   const usedPositions: { x: number; y: number }[] = []
-  const innerRadius = pizzaRadius * 0.7 // Keep pieces well within pizza bounds
+  const minDistance = Math.max(pizzaRadius * 0.25, 15) // الحد الأدنى للمسافة بين القطع
 
   for (let i = 0; i < pieceCount; i++) {
     let attempts = 0
     let x: number = 0
     let y: number = 0
+    let validPosition = false
 
     do {
-      // Random angle and distance from center
+      // استخدم sqrt للحصول على توزيع متساوي في الدائرة (تجنب التجمع في المركز)
       const angle = Math.random() * Math.PI * 2
-      const distance = Math.random() * innerRadius
+      const distance = Math.sqrt(Math.random()) * pizzaRadius
 
       x = Math.cos(angle) * distance
       y = Math.sin(angle) * distance
-      attempts++
-    } while (
-      attempts < 100 &&
-      usedPositions.some(
-        (pos) => Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2) < 20
+
+      // تحقق من المسافة من القطع الأخرى
+      validPosition = !usedPositions.some(
+        (pos) => Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2) < minDistance
       )
-    )
+
+      attempts++
+    } while (!validPosition && attempts < 100)
 
     usedPositions.push({ x, y })
     positions.push({
