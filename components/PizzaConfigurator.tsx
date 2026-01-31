@@ -6,7 +6,6 @@ import Image from "next/image"
 import {
   pizzaTypes,
   allIngredients,
-  generatePiecePositions,
   type Ingredient,
 } from "@/lib/pizza-data"
 import { ChevronLeft, ChevronRight, Plus, ShoppingCart, X } from "lucide-react"
@@ -55,6 +54,7 @@ export default function PizzaConfigurator() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [direction, setDirection] = useState<"left" | "right" | null>(null)
   const [placedPieces, setPlacedPieces] = useState<Record<string, PlacedPiece[]>>({})
+  const [addedIngredients, setAddedIngredients] = useState<Record<string, Set<string>>>({})
   const [flyingPieces, setFlyingPieces] = useState<FlyingPiece[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
@@ -64,16 +64,14 @@ export default function PizzaConfigurator() {
 
   const pizzaRef = useRef<HTMLDivElement>(null)
   const cartIconRef = useRef<HTMLButtonElement>(null)
-  const touchStartX = useRef(0)
-  const pieceCounter = useRef(0) // Counter for unique IDs
+  const pieceCounter = useRef(0)
 
   const currentPizza = pizzaTypes[currentIndex]
 
   // Calculate total price including added ingredients and size multiplier
   const calculateTotalPrice = () => {
-    const addedPieces = placedPieces[currentPizza.id] || []
-    const uniqueIngredients = [...new Set(addedPieces.map((p) => p.ingredientId))]
-    const ingredientsCost = uniqueIngredients.reduce((sum, ingId) => {
+    const ingredients = addedIngredients[currentPizza.id] || new Set()
+    const ingredientsCost = Array.from(ingredients).reduce((sum, ingId) => {
       return sum + (allIngredients[ingId]?.price || 0)
     }, 0)
     return (currentPizza.basePrice + ingredientsCost) * sizeConfig[selectedSize].priceMultiplier
@@ -99,13 +97,15 @@ export default function PizzaConfigurator() {
     [isTransitioning, isBoxing]
   )
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
+  const handleTouchStart = useRef(0)
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    handleTouchStart.current = e.touches[0].clientX
   }
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const onTouchEnd = (e: React.TouchEvent) => {
     const touchEndX = e.changedTouches[0].clientX
-    const diff = touchStartX.current - touchEndX
+    const diff = handleTouchStart.current - touchEndX
 
     if (Math.abs(diff) > 50) {
       if (diff > 0) {
@@ -119,30 +119,58 @@ export default function PizzaConfigurator() {
   const handleAddIngredient = (ingredient: Ingredient, buttonRect: DOMRect) => {
     if (!pizzaRef.current || isBoxing) return
 
+    const currentIngredients = addedIngredients[currentPizza.id] || new Set()
+    if (currentIngredients.has(ingredient.id)) {
+      return
+    }
+
     const pizzaRect = pizzaRef.current.getBoundingClientRect()
     const pizzaCenterX = pizzaRect.left + pizzaRect.width / 2
     const pizzaCenterY = pizzaRect.top + pizzaRect.height / 2
     
-    // استخدم نصف قطر البيتزا الحقيقي مع مراعاة حجم البيتزا المختار
-    const actualPizzaRadius = (pizzaRect.width / 2) * sizeConfig[selectedSize].scale
-    const pizzaRadius = actualPizzaRadius * 0.7 // 70% من نصف القطر الفعلي للبقاء داخل الحدود
+    // حساب نصف القطر للبيتزا المتوسطة (الحجم الأساسي)
+    const baseRadius = (pizzaRect.width / 2) / sizeConfig[selectedSize].scale
+    // استخدام 55% فقط من نصف القطر لضمان البقاء داخل الحدود
+    const safeRadius = baseRadius * 0.55
+    
+    // حجم القطعة الأساسي (بدون تكبير)
+    const basePieceSize = ingredient.pieceSize
+    const pieceHalfSize = basePieceSize / 2
 
-    // Generate positions for all pieces - within the circular pizza area
-    const positions = generatePiecePositions(ingredient.pieceCount, pizzaRadius)
-
-    // Create flying pieces for each position with staggered delays
-    const newFlyingPieces: FlyingPiece[] = positions.map((pos, index) => {
+    const newFlyingPieces: FlyingPiece[] = []
+    
+    for (let i = 0; i < ingredient.pieceCount; i++) {
       pieceCounter.current += 1
-      return {
+      
+      const angle = Math.random() * Math.PI * 2
+      const distance = Math.sqrt(Math.random()) * (safeRadius - pieceHalfSize)
+      
+      // المواقع النسبية (بدون تكبير)
+      const x = Math.cos(angle) * distance
+      const y = Math.sin(angle) * distance
+      
+      // لكن للعرض المؤقت نستخدم الحجم الحالي
+      const currentScale = sizeConfig[selectedSize].scale
+      
+      newFlyingPieces.push({
         id: `${ingredient.id}-${pieceCounter.current}`,
         ingredientId: ingredient.id,
         startX: buttonRect.left + buttonRect.width / 2,
         startY: buttonRect.top + buttonRect.height / 2,
-        endX: pizzaCenterX + pos.x,
-        endY: pizzaCenterY + pos.y,
-        size: (ingredient.pieceSize * sizeConfig[selectedSize].scale) + (Math.random() * 6 - 3), // Size scales with pizza
-        rotation: Math.random() * 360, // Random rotation for each piece
-        delay: index * 60, // Stagger for sprinkle effect
+        endX: pizzaCenterX + (x * currentScale),
+        endY: pizzaCenterY + (y * currentScale),
+        size: basePieceSize * currentScale,
+        rotation: Math.random() * 360,
+        delay: i * 60,
+      })
+    }
+
+    setAddedIngredients((prev) => {
+      const newSet = new Set(prev[currentPizza.id] || [])
+      newSet.add(ingredient.id)
+      return {
+        ...prev,
+        [currentPizza.id]: newSet,
       }
     })
 
@@ -152,12 +180,14 @@ export default function PizzaConfigurator() {
   const handleFlyingComplete = (pieceId: string, piece: FlyingPiece) => {
     setFlyingPieces((prev) => prev.filter((p) => p.id !== pieceId))
 
-    // Add to placed pieces
     const pizzaRect = pizzaRef.current?.getBoundingClientRect()
     if (!pizzaRect) return
 
-    const relativeX = piece.endX - (pizzaRect.left + pizzaRect.width / 2)
-    const relativeY = piece.endY - (pizzaRect.top + pizzaRect.height / 2)
+    const currentScale = sizeConfig[selectedSize].scale
+    
+    // حساب الموقع النسبي (بدون تكبير)
+    const relativeX = (piece.endX - (pizzaRect.left + pizzaRect.width / 2)) / currentScale
+    const relativeY = (piece.endY - (pizzaRect.top + pizzaRect.height / 2)) / currentScale
 
     const newPlacedPiece: PlacedPiece = {
       id: pieceId,
@@ -165,7 +195,7 @@ export default function PizzaConfigurator() {
       x: relativeX,
       y: relativeY,
       rotation: piece.rotation,
-      size: piece.size,
+      size: piece.size / currentScale, // حفظ الحجم الأساسي
     }
 
     setPlacedPieces((prev) => ({
@@ -178,28 +208,20 @@ export default function PizzaConfigurator() {
     if (isBoxing) return
     setIsBoxing(true)
     setBoxPhase("appearing")
-
-    // Animation sequence:
-    // 1. Box appears open (0-600ms)
-    // 2. Pizza slides into box (600-1400ms)
-    // 3. Box closes (1400-2200ms)
-    // 4. Box flies to cart (2200-3000ms)
     
     setTimeout(() => setBoxPhase("pizza-entering"), 600)
     setTimeout(() => setBoxPhase("closing"), 1400)
     setTimeout(() => setBoxPhase("closed"), 2000)
     setTimeout(() => setBoxPhase("flying"), 2200)
     setTimeout(() => {
-      // Add to cart
-      const addedPieces = placedPieces[currentPizza.id] || []
-      const uniqueIngredients = [...new Set(addedPieces.map((p) => p.ingredientId))]
+      const ingredients = addedIngredients[currentPizza.id] || new Set()
 
       const cartItem: CartItem = {
         pizzaId: currentPizza.id,
         pizzaName: currentPizza.name,
         basePrice: currentPizza.basePrice,
         size: selectedSize,
-        addedIngredients: uniqueIngredients.map((ingId) => ({
+        addedIngredients: Array.from(ingredients).map((ingId) => ({
           id: ingId,
           name: allIngredients[ingId]?.name || ingId,
           price: allIngredients[ingId]?.price || 0,
@@ -209,10 +231,15 @@ export default function PizzaConfigurator() {
 
       setCart((prev) => [...prev, cartItem])
 
-      // Clear placed pieces for this pizza
+      // مسح القطع والمكونات المضافة لهذه البيتزا
       setPlacedPieces((prev) => ({
         ...prev,
         [currentPizza.id]: [],
+      }))
+      
+      setAddedIngredients((prev) => ({
+        ...prev,
+        [currentPizza.id]: new Set(),
       }))
 
       setIsBoxing(false)
@@ -271,8 +298,8 @@ export default function PizzaConfigurator() {
       {/* Pizza Display */}
       <div
         className="flex-1 flex items-center justify-center relative overflow-hidden px-4 py-6"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
       >
         {/* Navigation Arrows */}
         <Button
@@ -332,7 +359,7 @@ export default function PizzaConfigurator() {
               {currentPlacedPieces.map((piece) => {
                 const ingredient = allIngredients[piece.ingredientId]
                 if (!ingredient) return null
-                // Scale piece size and position with pizza size
+                // المواقع والحجم يتكبران معاً مع البيتزا
                 const scaledSize = piece.size * sizeConfig[selectedSize].scale
                 const scaledX = piece.x * sizeConfig[selectedSize].scale
                 const scaledY = piece.y * sizeConfig[selectedSize].scale
@@ -419,33 +446,55 @@ export default function PizzaConfigurator() {
         <h3 className="text-sm font-semibold text-muted-foreground mb-3 text-center uppercase tracking-wide">
           Add Toppings
         </h3>
-        <div className="flex gap-3 overflow-x-auto pb-2 px-2 snap-x">
-          {availableIngredients.map((ingredient) => (
-            <button
-              key={ingredient.id}
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect()
-                handleAddIngredient(ingredient, rect)
-              }}
-              disabled={isBoxing}
-              className="flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-xl bg-background hover:bg-accent transition-all group snap-center disabled:opacity-50"
-            >
-              <div className="relative w-14 h-14 rounded-full overflow-hidden shadow-md group-hover:scale-110 transition-transform">
-                <Image
-                  src={ingredient.image || "/placeholder.svg"}
-                  alt={ingredient.name}
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              </div>
-              <span className="text-xs text-foreground font-medium">{ingredient.name}</span>
-              <span className="text-xs text-muted-foreground">+${ingredient.price.toFixed(2)}</span>
-              <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
-                <Plus className="w-3 h-3 text-primary" />
-              </div>
-            </button>
-          ))}
+        <div className="flex gap-3 overflow-x-auto pb-2 px-2 snap-x scrollbar-hide">
+          {availableIngredients.map((ingredient) => {
+            const isAdded = (addedIngredients[currentPizza.id] || new Set()).has(ingredient.id)
+            return (
+              <button
+                key={ingredient.id}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  handleAddIngredient(ingredient, rect)
+                }}
+                disabled={isBoxing || isAdded}
+                className={`flex-shrink-0 flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl transition-all group snap-center min-w-[100px] ${
+                  isAdded 
+                    ? "bg-primary/10 opacity-60 cursor-not-allowed" 
+                    : "bg-background hover:bg-accent"
+                }`}
+              >
+                <div className="relative w-14 h-14 rounded-full overflow-hidden shadow-md transition-transform group-hover:scale-110">
+                  <Image
+                    src={ingredient.image || "/placeholder.svg"}
+                    alt={ingredient.name}
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  {isAdded && (
+                    <div className="absolute inset-0 bg-primary/30 flex items-center justify-center">
+                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                        <svg className="w-4 h-4 text-primary-foreground" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                          <path d="M5 13l4 4L19 7"></path>
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <span className={`text-xs font-medium text-center ${isAdded ? "text-primary" : "text-foreground"}`}>
+                  {ingredient.name}
+                </span>
+                <span className="text-xs text-muted-foreground text-center">
+                  {isAdded ? "Added" : `+$${ingredient.price.toFixed(2)}`}
+                </span>
+                {!isAdded && (
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
+                    <Plus className="w-3 h-3 text-primary" />
+                  </div>
+                )}
+              </button>
+            )
+          })}
         </div>
       </div>
 
